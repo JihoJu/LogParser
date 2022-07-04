@@ -29,7 +29,7 @@ def parse(log: str):
     return_data["JSON"] = get_json_objs(log)
     return_data["XML"] = get_xml_objs(log)
 
-    return json.dumps(return_data, indent=2)
+    return return_data
 
 
 def get_time_objs(log: str, regex_obj):
