@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+pydantic
+cryptography
+jinja2
+python-multipart
+starlette
+pygrok
