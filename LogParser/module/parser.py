@@ -1,7 +1,7 @@
 import ast
 from collections import OrderedDict
 import json
-import pattern
+from . import pattern
 import xml.etree.ElementTree as ET
 
 SUB_SIGN = "   #spec#   "  # 각 obj 를 인식 후 해당 obj 자리 제거를 위한 string
