@@ -1,14 +1,14 @@
 import ast
 from collections import OrderedDict
 import json
-from . import pattern
+import LogParser.module.pattern as pattern
 import xml.etree.ElementTree as ET
 
 SUB_SIGN = "   #spec#   "  # 각 obj 를 인식 후 해당 obj 자리 제거를 위한 string
 TYPE_OBJ = ["TIME", "DATE", "URI", "IP", "PATH", "JSON", "XML"]
 
 
-def parse(log: str):
+def parse_log_data(log: str):
     """ Recognize each type obj for single-line entry of a log data
 
         로그 data 한 줄을 입력 시
@@ -21,18 +21,19 @@ def parse(log: str):
 
     return_data = OrderedDict()
 
-    return_data["TIME"] = get_time_objs(log, pattern.TIME_GROK.regex_obj)
-    return_data["DATE"] = get_date_objs(log, pattern.DATE_GROK.regex_obj)
-    return_data["URI"] = get_uri_objs(log, pattern.URI_GROK.regex_obj)
-    return_data["IP"] = get_ip_objs(log, pattern.IP_GROK.regex_obj)
-    return_data["PATH"] = get_path_objs(log, pattern.PATH_GROK.regex_obj)
+    return_data["LOG"] = log
+    return_data["TIME"] = get_time_objs(log)
+    return_data["DATE"] = get_date_objs(log)
+    return_data["URI"] = get_uri_objs(log)
+    return_data["IP"] = get_ip_objs(log)
+    return_data["PATH"] = get_path_objs(log)
     return_data["JSON"] = get_json_objs(log)
     return_data["XML"] = get_xml_objs(log)
 
     return return_data
 
 
-def get_time_objs(log: str, regex_obj):
+def get_time_objs(log: str):
     """ Identify TIME obj from a log data
 
         Time obj 가 아닌 정보를 인식 문제를 해결 위한 함수로 3개에 해당 obj 를 subtract from a log data
@@ -41,13 +42,12 @@ def get_time_objs(log: str, regex_obj):
         - 02:42:ac:ff:fe:11:00:02 -> "TIME": '11:00:02'
 
         :param log: log data 한 줄, type: str
-        :param regex_obj: Time grok pattern 을 regrex 객체로 변환한 re 객체
         :return: log data 한 개에서 time obj 를 findall 로 인식한 리스트 안 튜플 data structure
     """
 
     sub_log = pattern.SUBTRACT_TIME_GROK.regex_obj.sub(SUB_SIGN, log)  # log data 에서 subtract 할 regex pattern 객체
 
-    is_time_objs = regex_obj.findall(sub_log)
+    is_time_objs = pattern.TIME_GROK.regex_obj.findall(sub_log)
 
     if is_time_objs:
         parsed_time_objs = list()
@@ -58,14 +58,13 @@ def get_time_objs(log: str, regex_obj):
     return is_time_objs
 
 
-def get_date_objs(log: str, regex_obj):
+def get_date_objs(log: str):
     """ Identify DATE objs from a log data
 
         :param log: log data 한 줄, type: str
-        :param regex_obj: Date grok pattern 을 regrex 객체로 변환한 re 객체
         :return: log data 한 개에서 date obj 를 findall 로 인식한 리스트 안 튜플 data structure
     """
-    is_date_objs = regex_obj.findall(log)
+    is_date_objs = pattern.DATE_GROK.regex_obj.findall(log)
 
     if is_date_objs:
         parsed_date_objs = list()
@@ -76,14 +75,13 @@ def get_date_objs(log: str, regex_obj):
     return is_date_objs
 
 
-def get_uri_objs(log: str, regex_obj):
+def get_uri_objs(log: str):
     """ Identify URI objs from a log data
 
         :param log: log data 한 줄, type: str
-        :param regex_obj: URI grok pattern 을 regrex 객체로 변환한 re 객체
         :return: log data 한 개에서 URI obj 를 findall 로 인식한 리스트 안 튜플 data structure
     """
-    is_uri_objs = regex_obj.findall(log)
+    is_uri_objs = pattern.URI_GROK.regex_obj.findall(log)
 
     if is_uri_objs:
         parsed_uri_objs = list()
@@ -95,24 +93,29 @@ def get_uri_objs(log: str, regex_obj):
     return is_uri_objs
 
 
-def get_path_objs(log: str, regex_obj):
+def get_path_objs(log: str):
     """ Identify File Path obj from a log data
 
         File Path obj 가 아닌 obj 인식 문제를 해결 위한 함수로 아래 경우에 해당 obj 를 subtract from a log data
         - 3 ops, 0%/0% of on/off-heap limit -> 'PATH': '/0%'
 
         :param log: log data 한 줄, type: str
-        :param regex_obj: File path grok pattern 을 regrex 객체로 변환한 re 객체
         :return: log data 한 개에서 file path obj 를 findall 로 인식한 리스트 안 튜플 data structure
     """
 
-    sub_regex = pattern.upload_sub_path_regex()  # 위의 주석의 경우와 URI, IP 차례로 log data 에서 subtract 위한 regex 객체 (dict)
+    # 위의 주석의 경우와 URI, sub_path 차례로 log data 에서 subtract 위한 regex 객체 (dict)
+    sub_regex = pattern.upload_sub_path_regex()
 
-    # file path obj 추출 전 URI, IP, 미리 제거 sub_path obj 제거
+    # file path obj 인식 전 get_ip_objs 함수가 인식한 ip objs 를 log 에서 subtract
+    sub_ip_objs = get_ip_objs(log)
+    for obj in sub_ip_objs:
+        log = log.replace(obj, SUB_SIGN)
+
+    # file path obj 추출 전 URI, sub_path obj 제거
     for regex in sub_regex.values():
         log = regex.sub(SUB_SIGN, log)  # log data 에서 subtract 할 regex pattern 객체
 
-    is_path_objs = regex_obj.findall(log)
+    is_path_objs = pattern.PATH_GROK.regex_obj.findall(log)
 
     if is_path_objs:
         parsed_path_objs = list()
@@ -124,7 +127,7 @@ def get_path_objs(log: str, regex_obj):
     return is_path_objs
 
 
-def get_ip_objs(log: str, regex_obj):
+def get_ip_objs(log: str):
     """ Identify IP obj from a log data
 
         IP obj 가 Overlapping 되는 경우
@@ -139,7 +142,6 @@ def get_ip_objs(log: str, regex_obj):
         IP obj 인식 전에 log data 에서 위의 subtract case 와 URI obj 를 subtract 해주자
 
         :param log: log data 한 줄, type: str
-        :param regex_obj: IP grok pattern 을 regrex 객체로 변환한 re 객체
         :return: log data 한 개에서 IP obj 를 findall 로 인식한 리스트 안 튜플 data structure
     """
 
@@ -149,11 +151,15 @@ def get_ip_objs(log: str, regex_obj):
     for regex in sub_regex.values():
         log = regex.sub(SUB_SIGN, log)
 
-    is_ip_objs = regex_obj.findall(log)
+    is_ip_objs = pattern.IP_GROK.regex_obj.findall(log)
 
     if is_ip_objs:
         parsed_ip_objs = list()
         for obj in is_ip_objs:
+            if obj[0] == '::':  # '::' 만 인식 case 제거
+                continue
+            if pattern.SUBTRACT_IPV6_REGEX.fullmatch(obj[0]):  # abca::abcf -> 'abca::abcf' 인식 case 제거
+                continue
             # IP 의 경우 string 처음 or 마지막 -, :, ", =, ', [, ], (, ), @, , 제거
             parsed_ip_objs.append(obj[0].strip(pattern.STRIP_IP))
         return parsed_ip_objs
