@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request, Form
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from LogParser.module.parser import parse
+from LogParser.module.parser import parse_log_data
 
 app = FastAPI()
 templates = Jinja2Templates(directory="LogParser/templates")
@@ -20,7 +20,7 @@ async def input_log(request: Request):
 @app.post("/parsing")
 async def parse_log(request: Request, log: str = Form(...)):
     res = dict()
-    parsed_obj = parse(log)
+    parsed_obj = parse_log_data(log)
     for obj_type in parsed_obj.keys():
         if len(parsed_obj[obj_type]) != 0:
             res[obj_type] = parsed_obj[obj_type]
